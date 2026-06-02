@@ -8,10 +8,10 @@ class FlipFrenzy:
         self.root = root
         self.root.title("Flip Frenzy")
         self.root.configure(bg="#f0f8ff")
-        self.reset_game()
+        self.start_game()
 
-    def reset_game(self):
-        # Clear window
+    def start_game(self):
+        # Clear window but keep same frame
         for widget in self.root.winfo_children():
             widget.destroy()
 
@@ -28,17 +28,6 @@ class FlipFrenzy:
         self.deck = emojis * 2
         random.shuffle(self.deck)
 
-        # Splash screen
-        self.splash = tk.Label(self.root, text="Welcome to Flip Frenzy!", 
-                               font=("Arial", 24, "bold"), bg="#f0f8ff")
-        self.splash.pack(pady=20)
-        self.start_btn = tk.Button(self.root, text="Start Game", command=self.start_game)
-        self.start_btn.pack()
-
-    def start_game(self):
-        self.splash.destroy()
-        self.start_btn.destroy()
-
         # Scoreboard
         self.score_label = tk.Label(self.root, text="Player: 0 | AI: 0", 
                                     font=("Arial", 16), bg="#f0f8ff")
@@ -50,7 +39,7 @@ class FlipFrenzy:
         self.timer_label.pack()
         self.update_timer()
 
-        # Exit button (fixed)
+        # Exit button
         self.exit_btn = tk.Button(self.root, text="Exit Game", command=self.root.destroy)
         self.exit_btn.pack(pady=5)
 
@@ -96,6 +85,10 @@ class FlipFrenzy:
         self.check_game_over()
 
     def ai_turn(self):
+        # Limit AI memory size
+        if len(self.ai_memory) > 8:
+            self.ai_memory.pop(next(iter(self.ai_memory)))
+
         # Step 1: Pick first card
         first = self.ai_pick_card()
         self.buttons[first]["text"] = self.deck[first]
@@ -131,14 +124,21 @@ class FlipFrenzy:
         self.check_game_over()
 
     def ai_pick_card(self, exclude=None):
-        # Competitive AI: prioritize known pairs
-        for pos1, val1 in self.ai_memory.items():
-            for pos2, val2 in self.ai_memory.items():
-                if pos1 != pos2 and val1 == val2:
-                    if self.buttons[pos1]["text"] == "?" and pos1 != exclude:
-                        return pos1
-                    if self.buttons[pos2]["text"] == "?" and pos2 != exclude:
-                        return pos2
+        # Adjust AI intelligence based on score difference
+        score_diff = self.player_score - self.ai_score
+        # If AI is losing badly, increase smart chance
+        smart_chance = 0.8 if score_diff <= 2 else 0.95  
+
+        if random.random() < smart_chance:
+            # Try to find known pairs
+            for pos1, val1 in self.ai_memory.items():
+                for pos2, val2 in self.ai_memory.items():
+                    if pos1 != pos2 and val1 == val2:
+                        if self.buttons[pos1]["text"] == "?" and pos1 != exclude:
+                            return pos1
+                        if self.buttons[pos2]["text"] == "?" and pos2 != exclude:
+                            return pos2
+
         # Otherwise pick random unrevealed card
         choices = [i for i, btn in enumerate(self.buttons) if btn["text"] == "?" and i != exclude]
         return random.choice(choices)
@@ -149,9 +149,10 @@ class FlipFrenzy:
     def check_game_over(self):
         if all(btn["state"] == "disabled" for btn in self.buttons):
             winner = "Player" if self.player_score > self.ai_score else "AI"
-            messagebox.showinfo("Game Over", f"Winner: {winner}\nPlayer: {self.player_score} | AI: {self.ai_score}")
-            # Automatically start new game
-            self.reset_game()
+            messagebox.showinfo("Game Over", 
+                                f"Winner: {winner}\nPlayer: {self.player_score} | AI: {self.ai_score}")
+            # Restart inside same frame
+            self.start_game()
 
 # -----------------------------
 # Run Game
@@ -159,4 +160,3 @@ class FlipFrenzy:
 root = tk.Tk()
 game = FlipFrenzy(root)
 root.mainloop()
-
